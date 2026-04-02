@@ -40,18 +40,26 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val timerTextView = findViewById<TextView>(R.id.textView)
-
+        val startButton = findViewById<Button>(R.id.startButton)
+        val stopButton = findViewById<Button>(R.id.stopButton)
 
         bindService(Intent(this, TimerService::class.java), serviceConnection, BIND_AUTO_CREATE)
 
         findViewById<Button>(R.id.startButton).setOnClickListener {
-            if(timerBinder.isRunning) {
-                timerBinder.pause()
-            } else if (timerBinder.paused){
-                timerBinder.pause()
-            }
             if (isConnected) {
-                timerBinder.start(10)
+                if (!timerBinder.isRunning && !timerBinder.paused) {
+                    // Start timer first time
+                    timerBinder.start(10)
+                    startButton.text = "Pause"
+                } else if (timerBinder.isRunning) {
+                    // Pause timer
+                    timerBinder.pause()
+                    startButton.text = "Resume"
+                } else if (timerBinder.paused) {
+                    // Resume timer
+                    timerBinder.pause()
+                    startButton.text = "Pause"
+                }
             }
 
         }
