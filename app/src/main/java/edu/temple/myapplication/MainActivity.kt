@@ -7,6 +7,8 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.IBinder
 import android.os.Looper
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.Button
 import android.widget.TextView
 import java.util.logging.Handler
@@ -70,5 +72,40 @@ class MainActivity : AppCompatActivity() {
             }
 
         }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+
+        menuInflater.inflate(R.menu.main, menu)
+
+        return super.onCreateOptionsMenu(menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.play_pause -> {
+                if (isConnected) {
+                    if (!timerBinder.isRunning && !timerBinder.paused) {
+                        // Start timer first time
+                        timerBinder.start(10)
+                        item.setIcon(R.drawable.pause)
+                    } else if (timerBinder.isRunning) {
+                        // Pause timer
+                        timerBinder.pause()
+                        item.setIcon(R.drawable.play)
+                    } else if (timerBinder.paused) {
+                        // Resume timer
+                        timerBinder.pause()   // if your pause() function toggles pause/resume
+                        item.setIcon(R.drawable.pause)
+                    }
+                }
+                return true
+            }
+            R.id.stop -> { if (isConnected) timerBinder.stop()
+                return true
+            }
+
+        }
+        return super.onOptionsItemSelected(item)
     }
 }
