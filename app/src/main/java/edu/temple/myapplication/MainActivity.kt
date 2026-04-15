@@ -4,28 +4,28 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.os.Binder
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.Message
-import android.view.Menu
-import android.view.MenuItem
-import android.view.View
 import android.widget.Button
 import android.widget.TextView
-import kotlin.concurrent.timer
 
 class MainActivity : AppCompatActivity() {
     private var timerService: TimerService.TimerBinder? = null
     private var isBound = false
     private lateinit var textView: TextView
+    private lateinit var startButton: Button
+    private lateinit var stopButton: Button
     private val defaultValue = 20
 
-    private val handler = Handler(Looper.getMainLooper()) {
-            msg -> textView.text = msg.what.toString()
+    private val handler = Handler(Looper.getMainLooper()) { msg ->
+        textView.text = msg.what.toString()
+
+        if (msg.what == 0) {
+            startButton.text = "Start"
+        }
         true
     }
 
@@ -34,6 +34,12 @@ class MainActivity : AppCompatActivity() {
             timerService = p1 as TimerService.TimerBinder
             timerService?.setHandler(handler)
             isBound = true
+
+            if (timerService?.isRunning() == true) {
+                startButton.text = "Pause"
+            } else {
+                startButton.text = "Start"
+            }
         }
 
         override fun onServiceDisconnected(p0: ComponentName?) {
@@ -46,17 +52,29 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        textView = findViewById<TextView>(R.id.textView)
-        findViewById<Button>(R.id.startButton).setOnClickListener {
+        textView = findViewById(R.id.textView)
+        startButton = findViewById(R.id.startButton)
+        stopButton = findViewById(R.id.stopButton)
+
+        textView.text = defaultValue.toString()
+
+        startButton.setOnClickListener {
             if(isBound) {
-                val savedValue = timerService?.getSavedValue() ?: -1
-                val startValue = if (savedValue != -1) savedValue else defaultValue
-                timerService?.start(startValue)
+                if (timerService?.isRunning() == true) {
+                    timerService?.pause()
+                    startButton.text = "Start"
+                } else {
+                    timerService?.start(defaultValue)
+                    startButton.text = "Pause"
+                }
             }
         }
-        findViewById<Button>(R.id.stopButton).setOnClickListener {
+
+        stopButton.setOnClickListener {
             if (isBound) {
-                timerService?.pause()
+                timerService?.stop()
+                textView.text = defaultValue.toString()
+                startButton.text = "Start"
             }
         }
     }

@@ -27,62 +27,69 @@ class TimerService : Service() {
 
     inner class TimerBinder : Binder() {
 
-
-
-        // Start a new timer
         fun start(startValue: Int){
-
             if (!isRunning) {
                 if(::t.isInitialized) {
                     t.interrupt()
                 }
                 isRunning = true
+
+                val savedValue = preferences.getInt("paused_value", -1)
+                currentValue = if (savedValue != -1) savedValue else startValue
+
                 paused = false
-                currentValue = startValue
-                t = TimerThread(startValue)
+                preferences.edit { remove("paused_value") }
+
+                t = TimerThread(currentValue)
                 t.start()
             }
         }
 
-        // Receive updates from Service
         fun setHandler(handler: Handler) {
             timerHandler = handler
         }
 
-        // Stop a currently running timer
         fun stop() {
-            if (::t.isInitialized || isRunning) {
+            if (::t.isInitialized) {
                 t.interrupt()
             }
+            isRunning = false
+            paused = false
+            currentValue = 0
+            preferences.edit { remove("paused_value") }
         }
 
-        // Pause a running timer
         fun pause () {
             if (::t.isInitialized && isRunning) {
                 paused = true
-                preferences.edit{putInt("paused_value", currentValue)}
+                preferences.edit { putInt("paused_value", currentValue) }
                 t.interrupt()
                 isRunning = false
             }
-
         }
 
         fun getSavedValue(): Int {
             return preferences.getInt("paused_value", -1)
         }
 
+        fun isRunning(): Boolean {
+            return isRunning
+        }
+
+        fun isPaused(): Boolean {
+            return paused
+        }
+
     }
 
     override fun onCreate() {
         super.onCreate()
-
         Log.d("TimerService status", "Created")
     }
 
     override fun onBind(intent: Intent): IBinder {
         return TimerBinder()
     }
-
 
     inner class TimerThread(private val startValue: Int) : Thread() {
 
@@ -92,20 +99,16 @@ class TimerService : Service() {
                 for (i in startValue downTo 0)  {
                     Log.d("Countdown", i.toString())
                     currentValue = i
-
                     timerHandler?.sendEmptyMessage(i)
-
                     while (paused);
                     sleep(1000)
-
                 }
                 isRunning = false
                 paused = false
-                preferences.edit{remove("paused_value") }
+                preferences.edit { remove("paused_value") }
             } catch (e: InterruptedException) {
                 Log.d("Timer interrupted", e.toString())
                 isRunning = false
-                paused = false
             }
         }
 
@@ -113,20 +116,17 @@ class TimerService : Service() {
 
     override fun onUnbind(intent: Intent?): Boolean {
         if(!paused) {
-            preferences.edit{remove("paused_value")}
+            preferences.edit { remove("paused_value") }
         }
         if(::t.isInitialized && isRunning) {
             t.interrupt()
-            isRunning=false
+            isRunning = false
         }
         return true
     }
 
     override fun onDestroy() {
         super.onDestroy()
-
         Log.d("TimerService status", "Destroyed")
     }
-
-
 }
