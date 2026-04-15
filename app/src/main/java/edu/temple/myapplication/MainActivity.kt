@@ -1,111 +1,80 @@
 package edu.temple.myapplication
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.os.Binder
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.Message
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
-import java.util.logging.Handler
+import kotlin.concurrent.timer
 
 class MainActivity : AppCompatActivity() {
+    private var timerService: TimerService.TimerBinder? = null
+    private var isBound = false
+    private lateinit var textView: TextView
+    private val defaultValue = 20
 
-    lateinit var timerBinder : TimerService.TimerBinder
-    var isConnected = false
-
-    val timerHandler = android.os.Handler(Looper.getMainLooper()) {
-        findViewById<TextView>(R.id.textView).text = it.what.toString()
+    private val handler = Handler(Looper.getMainLooper()) {
+            msg -> textView.text = msg.what.toString()
         true
     }
 
-    val serviceConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            timerBinder = service as TimerService.TimerBinder
-            timerBinder.setHandler(timerHandler)
-            isConnected = true
+    private val conn = object: ServiceConnection {
+        override fun onServiceConnected(p0: ComponentName?, p1: IBinder?) {
+            timerService = p1 as TimerService.TimerBinder
+            timerService?.setHandler(handler)
+            isBound = true
         }
 
-        override fun onServiceDisconnected(name: ComponentName?) {
-            isConnected = false
+        override fun onServiceDisconnected(p0: ComponentName?) {
+            timerService = null
+            isBound = false
         }
-
     }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val timerTextView = findViewById<TextView>(R.id.textView)
-        val startButton = findViewById<Button>(R.id.startButton)
-        val stopButton = findViewById<Button>(R.id.stopButton)
-
-        bindService(Intent(this, TimerService::class.java), serviceConnection, BIND_AUTO_CREATE)
-
+        textView = findViewById<TextView>(R.id.textView)
         findViewById<Button>(R.id.startButton).setOnClickListener {
-            if (isConnected) {
-                if (!timerBinder.isRunning && !timerBinder.paused) {
-                    // Start timer first time
-                    timerBinder.start(10)
-                    startButton.text = "Pause"
-                } else if (timerBinder.isRunning) {
-                    // Pause timer
-                    timerBinder.pause()
-                    startButton.text = "Resume"
-                } else if (timerBinder.paused) {
-                    // Resume timer
-                    timerBinder.pause()
-                    startButton.text = "Pause"
-                }
+            if(isBound) {
+                val savedValue = timerService?.getSavedValue() ?: -1
+                val startValue = if (savedValue != -1) savedValue else defaultValue
+                timerService?.start(startValue)
             }
-
         }
-        
         findViewById<Button>(R.id.stopButton).setOnClickListener {
-            if (isConnected) {
-                timerBinder.stop()
+            if (isBound) {
+                timerService?.pause()
             }
-
         }
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-
-        menuInflater.inflate(R.menu.main, menu)
-
-        return super.onCreateOptionsMenu(menu)
+    override fun onStart() {
+        super.onStart()
+        bindService(
+            Intent(this, TimerService::class.java),
+            conn,
+            Context.BIND_AUTO_CREATE
+        )
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            R.id.play_pause -> {
-                if (isConnected) {
-                    if (!timerBinder.isRunning && !timerBinder.paused) {
-                        // Start timer first time
-                        timerBinder.start(10)
-                        item.setIcon(R.drawable.pause)
-                    } else if (timerBinder.isRunning) {
-                        // Pause timer
-                        timerBinder.pause()
-                        item.setIcon(R.drawable.play)
-                    } else if (timerBinder.paused) {
-                        // Resume timer
-                        timerBinder.pause()   // if your pause() function toggles pause/resume
-                        item.setIcon(R.drawable.pause)
-                    }
-                }
-                return true
-            }
-            R.id.stop -> { if (isConnected) timerBinder.stop()
-                return true
-            }
-
+    override fun onStop() {
+        super.onStop()
+        if(isBound) {
+            unbindService(conn)
         }
-        return super.onOptionsItemSelected(item)
+        isBound = false
     }
 }
